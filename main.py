@@ -1,16 +1,36 @@
 import streamlit as st
 import pandas as pd
-from utils import rolling_bin_max_sum_grouped, rolling_bin_max_sum, load_data
+from utils import managecolumns, loaddata, peakrolling
 
-def main():
+def set_session_state():
     if 'new_column_names' not in st.session_state:
-        st.session_state.new_column_names = []
+        st.session_state.new_column_names = None
     
     if 'now_show' not in st.session_state:
         st.session_state.now_show = False
 
+    if "updated_column_names" not in st.session_state:
+        st.session_state.updated_column_names = None
+        
+
+def main():
+    set_session_state()
+
+    # wide mode
+    st.set_page_config(layout="wide")
+
     # Title of the app
-    st.title('Data Analysis Tool')
+    st.title('Data Analysis Tool :bar_chart:')
+
+    with st.expander("Know what you can do with this tool"):
+        st.markdown('''
+                <p style="text-align: justify">
+                    This is a simple tool to perform Peak Rolling on CSV files generated from Simio Input Generator. 
+                    You can upload a CSV file, set column names, and perform operations (such as summing two columns 
+                    to create a new column), sort by a column and get rolling peak with or without grouping on the 
+                    other columns.
+                </p>''', 
+                unsafe_allow_html=True)
 
     # Sidebar section for file upload and options
     st.sidebar.write('### Upload CSV File')
@@ -31,8 +51,8 @@ def main():
         delimiter = delimiter_map[delimiter]
 
         header_option = st.sidebar.radio('Does the CSV file have Column Names?', ["No", "Yes"], horizontal=True)
-
-        df = load_data(uploaded_file, header_option, delimiter)
+       
+        df = loaddata.load_data(uploaded_file, header_option, delimiter)
         
         # Display file name
         st.markdown(
@@ -50,7 +70,6 @@ def main():
         if st.checkbox('Show Summary (contains count, mean, std, min, max, etc. over each column)'):
             st.write(df.describe())
             
-
         st.write('### Data Preview')
         tableElement = st.empty()
         tableElement.write(df)
@@ -62,35 +81,49 @@ def main():
         if "updated_column_names" not in st.session_state:
             st.session_state.updated_column_names = None
 
-        # If the user selected "No", provide an option to input column names
+        # Handle scenario when user selects "No" for header option
         if header_option == "No":
-            st.sidebar.write('### Add column names')
             
-            # Single text input for all column names separated by commas
-            all_column_names = st.sidebar.text_input('Enter all column names separated by commas', placeholder='Column1, Column2, Column3, ...')
-            if all_column_names != '':
-                if len(all_column_names.split(',')) != df.shape[1]:
-                    st.sidebar.error(f"Number of column names ({len(all_column_names.split(','))}) does not match the number of columns in the DataFrame ({df.shape[1]}).")
+            # Check if new column names are not set or mismatch the DataFrame's columns
+            if st.session_state.new_column_names != None and len(df.columns) != len(st.session_state.new_column_names):
+                # Reset new_column_names session state if mismatch
+                st.session_state.new_column_names = None
             
-            # Create a button to update column names
-            if st.sidebar.button('Set Column Names'):
-                # Process the input to create the list of column names
-                new_column_names = [name.strip().replace('"', '').replace("'", '') for name in all_column_names.split(',')]
+            # If new column names have not been set, prompt the user to enter them
+            if 'new_column_names' not in st.session_state or st.session_state.new_column_names is None:
+                st.write("No column names present. Please enter new column names.")
                 
-                # Check if the number of column names matches the number of columns in the dataframe
-                if len(new_column_names) != df.shape[1]:
-                    st.sidebar.error(f"Number of column names provided ({len(new_column_names)}) does not match the number of columns in the DataFrame ({df.shape[1]}).")
-                elif '' in new_column_names:
-                    st.sidebar.error("Column names cannot be empty.")
-                elif len(new_column_names) != len(set(new_column_names)):
-                    st.sidebar.error("Duplicate column names are not allowed!")
-                else:
-                    # Store the new column names in session state
-                    st.session_state.new_column_names = new_column_names
-                    st.session_state.updated_column_names = new_column_names
-                    st.sidebar.success("Column names set successfully!")
-                    st.session_state.now_show = True
-        
+                c1, c2 = st.columns(2, gap="medium")
+                
+                # Button to trigger column name entry
+                with c1:
+                    if st.button("Enter Column Names"):
+                        managecolumns.manage_columns(df, mode='create')
+                
+                # Show current status of column names
+                with c2:
+                    st.write("No column names entered yet.")
+            
+            # If column names are already set, give options to view or change
+            else:
+                c1, c2 = st.columns(2, gap="medium")
+                
+                # Option to view the entered column names
+                with c1:
+                    viewCols = st.checkbox("View Column Names")
+                    if viewCols:
+                        if 'new_column_names' in st.session_state and st.session_state.new_column_names:
+                            st.write("Current Column Names:", st.session_state.new_column_names)
+                        else:
+                            st.write("No column names available.")
+                
+                # Button to change the column names
+                with c2:
+                    if st.button("Change Column Names"):
+                        managecolumns.manage_columns(df, mode='change')
+
+
+
         # Use either the session state column names or original column names
         if st.session_state.new_column_names:
             df.columns = st.session_state.new_column_names
@@ -124,12 +157,12 @@ def main():
                 if operation_between_2_cols:
                     # Ensure the dataframe has the updated column names
 
-                    try:
-                        # assert len(df.columns) == len(st.session_state.new_column_names), "Number of columns in the dataframe does not match the number of column names."
-                        df.columns = st.session_state.new_column_names
+                    # try:
+                    #     # assert len(df.columns) == len(st.session_state.new_column_names), "Number of columns in the dataframe does not match the number of column names."
+                    #     df.columns = st.session_state.new_column_names
 
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                    # except Exception as e:
+                    #     st.error(f"Error: {e}")
                     
                     # Layout for selecting columns and operation
                     col1_col, col2_col, operation_col = st.columns(3)
@@ -161,6 +194,8 @@ def main():
 
                         try:
                             df[new_col_name] = df[col1].combine(df[col2], eval(f'lambda x, y: x {operation} y'))
+                            
+                            st.caption(f"New column with name '`{new_col_name}`' is created at the end of the DataFrame.")
                             st.write(df)
                             st.session_state.updated_column_names = df.columns.tolist()
                         except Exception as e:
@@ -190,7 +225,14 @@ def main():
                             st.error(f"Error performing operation '{operation_for_single_col}' on column '{col}': {e}")
                     else:
                         st.error(f"Invalid operation: {operation_for_single_col}")
-
+            else:
+                # check length of columns
+                if st.session_state.new_column_names != None and len(df.columns) != len(st.session_state.new_column_names):
+                    # if last column name is TempColumn, remove it
+                    if df.columns[-1] == 'TempColumn':
+                        df = df.drop(columns=['TempColumn'])
+                    st.session_state.new_column_names = df.columns.tolist()
+                    st.session_state.updated_column_names = df.columns.tolist()
 
                     
             # select, sort by column
@@ -199,13 +241,15 @@ def main():
             performSorting = st.toggle(key='perform_sorting', value=False, label='Perform Sorting ?')
 
             if performSorting:
-                sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 1, 1])
+                sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")
 
                 with sort_by_col_select:
-                    sort_by_column = st.selectbox('Select sorting column:', st.session_state.updated_column_names)
+                    sort_by_column = st.selectbox('Select sorting column:', st.session_state.updated_column_names, 
+                                            index=None,
+                                            placeholder="Select Sorting column...", label_visibility='collapsed')
 
                 with sort_order_select:
-                    sort_order = st.radio('Order:', ['Ascending', 'Descending'])
+                    sort_order = st.radio('Order:', ['Ascending', 'Descending'], horizontal=True, label_visibility='collapsed')
 
                 with yes_sort_button:
                     if st.button('Sort Now'):
@@ -225,30 +269,45 @@ def main():
                 times_col, entities_col, time_window_col = st.columns(3)
 
                 with times_col:
-                    colT1 = st.selectbox('Select Times column:', st.session_state.updated_column_names)
+                    colT1 = st.selectbox('Select Times column:', st.session_state.updated_column_names, 
+                                            index=None,
+                                            placeholder="Select Times column...", label_visibility='collapsed')
 
                 with entities_col:
-                    colE2 = st.selectbox('Select Entities column:', st.session_state.updated_column_names)
+                    colE2 = st.selectbox('Select Entities column:', st.session_state.updated_column_names, 
+                                            index=None,
+                                            placeholder="Select Entities column...", label_visibility='collapsed')
 
                 with time_window_col:
                     # select values from (60, 30, 20, 15, 10, 5)
-                    window_selection_vals = [60, 30, 20, 15, 10, 5]
-                    colTimeWin3 = st.selectbox('Select Time Window:', window_selection_vals)
+                    window_selection_vals = [5, 10, 15, 20, 30, 60]
+                    colTimeWin3 = st.select_slider('Select Time Window:', window_selection_vals, value=window_selection_vals[-1] )
             
                 # group by column
                 st.write('#### Group by Column')
-                performGroupBy = st.toggle(key='perform_group_by', value=True, label='Perform Group by Column ?')
+                performGroupBy = st.toggle(key='perform_group_by', value=False, label='Perform Group by Column ?')
 
                 if performGroupBy:
-                    group_by_column = st.selectbox('Select group by column:', st.session_state.updated_column_names)
-                    
-                    rollingMax = rolling_bin_max_sum_grouped(df, colT1, colE2, window=colTimeWin3, groupBy=group_by_column, show_in_hhmm_format=True)
+                    group_by_column = st.selectbox('Select group by column:', st.session_state.updated_column_names, 
+                                            index=None,
+                                            placeholder="Select group by column...", label_visibility='collapsed')
+                    if group_by_column and colT1 and colE2:
+                        # check length of columns
+                        if len(df.columns) != len(st.session_state.new_column_names):
+                            st.session_state.new_column_names = df.columns.tolist()
+                        rollingMax = peakrolling.rolling_bin_max_sum_grouped(df, colT1, colE2, window=colTimeWin3, groupBy=group_by_column, show_in_hhmm_format=True)
+                    else:
+                        st.warning('Please select the column names first to perform operations.', icon='⚠️')
                 else:
-                    rollingMax, rollingMaxTime = rolling_bin_max_sum(df, colT1, colE2,window=colTimeWin3, show_in_hhmm_format=True)
+                    if colT1 and colE2:
+                        rollingMax, rollingMaxTime = peakrolling.rolling_bin_max_sum(df, colT1, colE2,window=colTimeWin3, show_in_hhmm_format=True)
+                        
+                        st.write(pd.DataFrame({'RollingMax': [rollingMax], 'RollingMaxTime': [rollingMaxTime]}))
+                    else:
+                        st.write('Please select the column names first to perform operations.')
                     
-                    st.write(pd.DataFrame({'RollingMax': [rollingMax], 'RollingMaxTime': [rollingMaxTime]}))
         else:
-            st.write('Please set column names first to perform operations.')            
+            st.warning('Please set column names first to perform operations.', icon='⚠️')            
     else:
         # Message for no file upload
         st.write('Please upload a CSV file to start the analysis.')
