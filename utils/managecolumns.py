@@ -61,6 +61,7 @@ def manage_columns(df, mode='create'):
     if st.button('Set Column Names'):
         # If validation passed, store the new column names
         st.session_state.new_column_names = all_column_names
+        st.session_state.updated_column_names = all_column_names
         st.session_state.now_show = True
         df.columns = all_column_names
         st.success("Column names set successfully!")

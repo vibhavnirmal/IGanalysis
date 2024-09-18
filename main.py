@@ -11,10 +11,13 @@ def set_session_state():
 
     if "updated_column_names" not in st.session_state:
         st.session_state.updated_column_names = None
-        
+
+    if "selected_file" not in st.session_state:
+        st.session_state.selected_file = None
 
 def main():
     set_session_state()
+
 
     # wide mode
     st.set_page_config(layout="wide")
@@ -22,23 +25,37 @@ def main():
     # Title of the app
     st.title('Data Analysis Tool :bar_chart:')
 
-    with st.expander("Know what you can do with this tool"):
-        st.markdown('''
-                <p style="text-align: justify">
-                    This is a simple tool to perform Peak Rolling on CSV files generated from Simio Input Generator. 
-                    You can upload a CSV file, set column names, and perform operations (such as summing two columns 
-                    to create a new column), sort by a column and get rolling peak with or without grouping on the 
-                    other columns.
-                </p>''', 
-                unsafe_allow_html=True)
+    expanderCol1, expanderCol2 = st.columns(2)
 
-    # Sidebar section for file upload and options
-    st.sidebar.write('### Upload CSV File')
+  
+    with expanderCol1:
+        expander = st.expander("Choose Single or Multiple csv files to start analysis", expanded=True)
+        with expander:
+            # File uploader widget in the sidebar
+            uploaded_files = st.file_uploader('Upload a CSV file', type='csv', accept_multiple_files=True, 
+                                            key='file_uploader', help='Upload a CSV file to start the analysis.')
+            # set expander state to expanded=False
+            expander.expanded = False
+    with expanderCol2:
+        with st.expander("Know what you can do with this tool"):
+            st.markdown('''
+                    <p style="text-align: justify">
+                        This is a simple tool to perform Peak Rolling on CSV files generated from Simio Input Generator. 
+                        You can upload a CSV file, set column names, and perform operations (such as summing two columns 
+                        to create a new column), sort by a column and get rolling peak with or without grouping on the 
+                        other columns.
+                    </p>''', 
+                    unsafe_allow_html=True)       
 
-    # File uploader widget in the sidebar
-    uploaded_file = st.sidebar.file_uploader('Upload a CSV file', type='csv')
+    if len(uploaded_files) > 1:
+        # create radio buttons for multiple files
+        selected_file = st.sidebar.radio('Select a file:', uploaded_files, format_func=lambda x: x.name)
+        st.session_state.selected_file = selected_file
+    else:
+        st.session_state.selected_file = uploaded_files[0] if uploaded_files else None
 
-    if uploaded_file is not None:
+
+    if st.session_state.selected_file is not None:
         # Delimiter selection option
         delimiter = st.sidebar.radio('Select delimiter:', ['Comma (`,`)', 'Semicolon (`;`)', 'Tab (`\\t`)'], horizontal=True)
 
@@ -52,7 +69,7 @@ def main():
 
         header_option = st.sidebar.radio('Does the CSV file have Column Names?', ["No", "Yes"], horizontal=True)
        
-        df = loaddata.load_data(uploaded_file, header_option, delimiter)
+        df = loaddata.load_data(st.session_state.selected_file, header_option, delimiter)
         
         # Display file name
         st.markdown(
@@ -60,7 +77,7 @@ def main():
             <style>
             .file-name {{ text-align: right; font-size: 18px; color: gray; }}
             </style>
-            <div class="file-name">Uploaded file: {uploaded_file.name}</div>
+            <div class="file-name">Uploaded file: {st.session_state.selected_file.name}</div>
             """,
             unsafe_allow_html=True
         )
@@ -238,7 +255,7 @@ def main():
             # select, sort by column
             st.write('### Select and Sort by Column :arrow_up_down:')
 
-            performSorting = st.toggle(key='perform_sorting', value=False, label='Perform Sorting ?')
+            performSorting = st.toggle(key='perform_sorting', value=True, label='Perform Sorting ?')
 
             if performSorting:
                 sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")
