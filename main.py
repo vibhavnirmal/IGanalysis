@@ -123,23 +123,13 @@ def main():
             
             # If column names are already set, give options to view or change
             else:
-                c1, c2 = st.columns(2, gap="medium")
-                
-                # Option to view the entered column names
-                with c1:
-                    viewCols = st.checkbox("View Column Names")
-                    if viewCols:
-                        if 'new_column_names' in st.session_state and st.session_state.new_column_names:
-                            st.write("Current Column Names:", st.session_state.new_column_names)
-                        else:
-                            st.write("No column names available.")
-                
-                # Button to change the column names
-                with c2:
-                    if st.button("Change Column Names"):
-                        managecolumns.manage_columns(df, mode='change')
+                viewCols = st.checkbox("View/Edit Column Names")
 
-
+                if viewCols:
+                    columnsDF = pd.DataFrame([st.session_state.new_column_names], columns=list(range(1, len(st.session_state.new_column_names) + 1)))
+                    columnsDF = st.data_editor(columnsDF)
+                    st.session_state.new_column_names = columnsDF.iloc[0].tolist()
+                    st.session_state.updated_column_names = columnsDF.iloc[0].tolist()
 
         # Use either the session state column names or original column names
         if st.session_state.new_column_names:
@@ -258,23 +248,41 @@ def main():
             performSorting = st.toggle(key='perform_sorting', value=True, label='Perform Sorting ?')
 
             if performSorting:
-                sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")
+                # sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")
 
-                with sort_by_col_select:
-                    sort_by_column = st.selectbox('Select sorting column:', st.session_state.updated_column_names, 
-                                            index=None,
-                                            placeholder="Select Sorting column...", label_visibility='collapsed')
+                # with sort_by_col_select:
+                #     sort_by_column = st.selectbox('Select sorting column:', st.session_state.updated_column_names, 
+                #                             index=None,
+                #                             placeholder="Select Sorting column...", label_visibility='collapsed')
 
-                with sort_order_select:
-                    sort_order = st.radio('Order:', ['Ascending', 'Descending'], horizontal=True, label_visibility='collapsed')
+                # with sort_order_select:
+                #     sort_order = st.radio('Order:', ['Ascending', 'Descending'], horizontal=True, label_visibility='collapsed')
 
-                with yes_sort_button:
-                    if st.button('Sort Now'):
-                        # Sort the dataframe by the selected column and order
-                        ascending = True if sort_order == 'Ascending' else False
-                        df = df.sort_values(by=sort_by_column, ascending=ascending)
+                # with yes_sort_button:
+                #     if st.button('Sort Now'):
+                #         # Sort the dataframe by the selected column and order
+                #         ascending = True if sort_order == 'Ascending' else False
+                #         df = df.sort_values(by=sort_by_column, ascending=ascending)
                 
-                st.dataframe(df)
+                # st.dataframe(df)
+
+                # Let the user select columns for sorting
+                sort_columns = st.multiselect(
+                    'Select columns to sort by',
+                    options=st.session_state.updated_column_names,
+                    default=[]  # Default can be empty or specific columns
+                )
+
+                # Let the user choose the sort order (ascending or descending)
+                ascending_order = st.checkbox('Sort in ascending order', value=True)
+
+                # Sort the dataframe based on selected columns and order
+                if sort_columns:
+                    df = df.sort_values(by=sort_columns, ascending=ascending_order)
+                    st.write(f"### Sorted Data by {', '.join(sort_columns)}")
+                    st.write(df)
+                else:
+                    st.write("### Please select columns to sort by.")
 
             st.write('### Rolling Max Calculation')
             performRollingMaxCalc = st.toggle(key='perform_rolling', value=False, label='Perform Peak Rolling ?')
@@ -305,19 +313,24 @@ def main():
                 performGroupBy = st.toggle(key='perform_group_by', value=False, label='Perform Group by Column ?')
 
                 if performGroupBy:
-                    group_by_column = st.selectbox('Select group by column:', st.session_state.updated_column_names, 
-                                            index=None,
-                                            placeholder="Select group by column...", label_visibility='collapsed')
+                    grpByCol1, showHHMMCol2 = st.columns(2)
+                    with grpByCol1:
+                        group_by_column = st.selectbox('Select group by column:', st.session_state.updated_column_names, 
+                                                index=None,
+                                                placeholder="Select group by column...", label_visibility='collapsed')
+                    with showHHMMCol2:
+                        show_in_hhmm_format = st.checkbox('Show in HH:MM format', value=True)
+
                     if group_by_column and colT1 and colE2:
                         # check length of columns
                         if len(df.columns) != len(st.session_state.new_column_names):
                             st.session_state.new_column_names = df.columns.tolist()
-                        rollingMax = peakrolling.rolling_bin_max_sum_grouped(df, colT1, colE2, window=colTimeWin3, groupBy=group_by_column, show_in_hhmm_format=True)
+                        rollingMax = peakrolling.rolling_bin_max_sum_grouped(df, colT1, colE2, window=colTimeWin3, groupBy=group_by_column, show_in_hhmm_format=show_in_hhmm_format)
                     else:
                         st.warning('Please select the column names first to perform operations.', icon='⚠️')
                 else:
                     if colT1 and colE2:
-                        rollingMax, rollingMaxTime = peakrolling.rolling_bin_max_sum(df, colT1, colE2,window=colTimeWin3, show_in_hhmm_format=True)
+                        rollingMax, rollingMaxTime = peakrolling.rolling_bin_max_sum(df, colT1, colE2,window=colTimeWin3, show_in_hhmm_format=show_in_hhmm_format)
                         
                         st.write(pd.DataFrame({'RollingMax': [rollingMax], 'RollingMaxTime': [rollingMaxTime]}))
                     else:
