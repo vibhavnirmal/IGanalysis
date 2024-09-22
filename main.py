@@ -286,9 +286,11 @@ def main():
                 if sort_columns:
                     df = df.sort_values(by=sort_columns, ascending=ascending_order)
                     st.write(f"### Sorted Data by {', '.join(sort_columns)}")
-                    st.write(df)
+                    # show df but dont allow sorting
+                    st.dataframe(df, use_container_width=True)
+
                 else:
-                    st.write("### Please select columns to sort by.")
+                    st.write("##### Please select columns you wish to sort data by")
 
             st.write('### Rolling Max Calculation')
             performRollingMaxCalc = st.toggle(key='perform_rolling', value=False, label='Perform Peak Rolling ?')
