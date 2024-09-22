@@ -18,7 +18,6 @@ def set_session_state():
 def main():
     set_session_state()
 
-
     # wide mode
     st.set_page_config(layout="wide")
 
@@ -68,8 +67,15 @@ def main():
         delimiter = delimiter_map[delimiter]
 
         header_option = st.sidebar.radio('Does the CSV file have Column Names?', ["No", "Yes"], horizontal=True)
+        
        
         df = loaddata.load_data(st.session_state.selected_file, header_option, delimiter)
+        
+        
+        if header_option == "Yes":
+            st.session_state.now_show = True
+            st.session_state.new_column_names = df.columns.tolist()
+            st.session_state.updated_column_names = df.columns.tolist()
         
         # Display file name
         st.markdown(
@@ -83,7 +89,7 @@ def main():
         )
 
         # column length
-        st.write(f'Number of columns: ', df.shape[1], 'Number of rows: ', df.shape[0])
+        st.write('Number of columns: ', df.shape[1], 'Number of rows: ', df.shape[0])
         if st.checkbox('Show Summary (contains count, mean, std, min, max, etc. over each column)'):
             st.write(df.describe())
             
@@ -102,7 +108,7 @@ def main():
         if header_option == "No":
             
             # Check if new column names are not set or mismatch the DataFrame's columns
-            if st.session_state.new_column_names != None and len(df.columns) != len(st.session_state.new_column_names):
+            if st.session_state.new_column_names is not None and len(df.columns) != len(st.session_state.new_column_names):
                 # Reset new_column_names session state if mismatch
                 st.session_state.new_column_names = None
             
@@ -234,7 +240,7 @@ def main():
                         st.error(f"Invalid operation: {operation_for_single_col}")
             else:
                 # check length of columns
-                if st.session_state.new_column_names != None and len(df.columns) != len(st.session_state.new_column_names):
+                if st.session_state.new_column_names is not None and len(df.columns) != len(st.session_state.new_column_names):
                     # if last column name is TempColumn, remove it
                     if df.columns[-1] == 'TempColumn':
                         df = df.drop(columns=['TempColumn'])
