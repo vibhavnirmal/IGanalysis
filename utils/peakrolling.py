@@ -98,4 +98,6 @@ def rolling_bin_max_sum(df, timeColumn, entityColumn, bin_interval=1, window=60,
 
         return int(rolling_max), rolling_max_time_in_hhmm
     else:
+
+        rolling_max_time = rolling_max_time.left
         return int(rolling_max), rolling_max_time

@@ -31,8 +31,10 @@ def main():
         expander = st.expander("Choose Single or Multiple csv files to start analysis", expanded=True)
         with expander:
             # File uploader widget in the sidebar
-            uploaded_files = st.file_uploader('Upload a CSV file', type='csv', accept_multiple_files=True, 
-                                            key='file_uploader', help='Upload a CSV file to start the analysis.')
+            uploaded_files = st.file_uploader('Upload a CSV file', type=['csv', 'txt'], 
+                                              accept_multiple_files=True, 
+                                              key='file_uploader', 
+                                              help='Upload a CSV file to start the analysis.')
             # set expander state to expanded=False
             expander.expanded = False
     with expanderCol2:
@@ -337,6 +339,7 @@ def main():
                     else:
                         st.warning('Please select the column names first to perform operations.', icon='⚠️')
                 else:
+                    show_in_hhmm_format = st.checkbox('Show in HH:MM format', value=True)
                     if colT1 and colE2:
                         rollingMax, rollingMaxTime = peakrolling.rolling_bin_max_sum(df, colT1, colE2,window=colTimeWin3, show_in_hhmm_format=show_in_hhmm_format)
                         
