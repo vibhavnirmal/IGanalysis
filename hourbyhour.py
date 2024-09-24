@@ -105,27 +105,35 @@ def main():
 
         tempcol3, tempcol4 = st.columns(2)
 
+        tempcol5, tempcol6 = st.columns(2)
+
         with tempcol1:
             # groupby 
-            groupby = st.selectbox('Select columns to groupby:', df.columns, index=None)
-
-        with tempcol2:
-            # which kind of operation to perform
-            operation = st.selectbox('Select operation:', ['Mean', 'Sum', 'Max', 'Min'], index=None)
+            groupby = st.selectbox('Select column to groupby:', df.columns, index=None)
 
         with tempcol3:
-            # select columns to perform operations
-            columnsToPerformOps = st.multiselect('Select columns to perform operations:', df.columns, default=[])
+            # which kind of operation to perform
+            operation = st.selectbox('Select operation:', ['Mean', 'Max', 'Quantile'], index=None)
+    
+        with tempcol4:
+            if operation is not None and 'quantile' in operation.lower():
+                # quantile value
+                quantileQ = st.slider('Select quantile value:', 0.0, 1.0, 0.75, 0.05)      
 
         if groupby is not None and len(groupby) > 0:
             if 'Hour' in groupby:
-                with tempcol4:
+                with tempcol2:
                     # range slider for selecting the time window
                     values = st.slider('Select a range of hours', 1, 24, (4, 11))
+
             if 'Month' in groupby:
-                with tempcol4:
+                with tempcol2:
                     # range slider for selecting the time window
-                    values = st.slider('Select a range of months', 1, 12, (1, 6))
+                    values = st.slider('Select a range of months', 1, 12, (4, 9))
+        
+        # select columns to perform operations
+        columnsToPerformOps = st.multiselect('Select column(s) to perform operations:', df.columns, default=[])
+
 
         if groupby is not None and operation is not None and len(columnsToPerformOps) > 0:
             # if groupby hour? then
@@ -133,8 +141,15 @@ def main():
                 # filter the dataframe based on the range of hours selected
                 df = df[(df['Hour'] >= values[0]) & (df['Hour'] <= values[1])].copy()
 
+            if 'Month' in groupby:
+                # filter the dataframe based on the range of months selected
+                df = df[(df['Month'] >= values[0]) & (df['Month'] <= values[1])].copy()
+
             # perform operations on the selected columns
-            filtered_df = df.groupby(groupby)[columnsToPerformOps].agg(operation.lower()).round(0)
+            if operation.lower() == 'quantile':
+                filtered_df = df.groupby(groupby)[columnsToPerformOps].quantile(quantileQ).round(0)
+            else:
+                filtered_df = df.groupby(groupby)[columnsToPerformOps].agg(operation.lower()).round(0)
 
             st.write('Plotting graph...')
             st.bar_chart(filtered_df.iloc[:, :3], use_container_width=True, stack=False)
@@ -146,10 +161,36 @@ def main():
 
             st.dataframe(filtered_df, use_container_width=True)
 
+            tempColNew1, tempColNew2 = st.columns(2)
 
+            with tempColNew1:
+                precheck_throughput = st.selectbox('Select Precheck Column:', df.columns, index=None)
+
+            with tempColNew2:
+                precheck_throughput_slider = st.slider('Select Precheck Throughput (PAX/Hour):', 100, 300, 250, 5)
+
+            if precheck_throughput is not None and precheck_throughput_slider is not None:
+                filtered_df['Lanes Needed'] = (filtered_df[precheck_throughput] / precheck_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
+                st.dataframe(filtered_df, use_container_width=True)
+
+            tempColNew3, tempColNew4 = st.columns(2)
+
+            with tempColNew3:
+                standard_throughput = st.selectbox('Select Standard Column:', df.columns, index=None)
+
+            with tempColNew4:
+                standard_throughput_slider = st.slider('Select Standard Throughput (PAX/Hour):', 100, 300, 150, 5)
+
+            if standard_throughput is not None and standard_throughput_slider is not None:
+                filtered_df['Lanes Needed'] = (filtered_df[standard_throughput] / standard_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
+                st.dataframe(filtered_df, use_container_width=True)
+                             
         else:
             st.warning(':warning: Please select the columns to perform operations... ')
-            
+
+        
+
+
 
 
 
