@@ -32,7 +32,7 @@ def manage_columns(df, mode='create'):
 
     if use_tags:
         all_column_names = st_tags(
-            label=f'Enter {df.shape[1]} column names:',
+            label=f'Enter `{df.shape[1]}` column names:',
             text='Press enter to add more',
             value=[],
             suggestions=COLUMN_SUGGESTIONS,
@@ -40,12 +40,15 @@ def manage_columns(df, mode='create'):
         )
     else:
         all_column_names = st.text_area(
-            'Enter column names separated by commas (,)', 
+            f'Enter `{df.shape[1]}` column names separated by commas (,)', 
             height=150
         ).split(',')
         all_column_names = [name.strip() for name in all_column_names if name.strip()]
 
-    st.write(all_column_names)
+    if len(all_column_names) > 0:
+        showColumnsNames = st.checkbox('Show Column Names', value=False)
+        if showColumnsNames:
+            st.write(all_column_names)
 
     # Validate input
     if len(all_column_names) != df.shape[1]:
@@ -63,6 +66,7 @@ def manage_columns(df, mode='create'):
         st.session_state.new_column_names = all_column_names
         st.session_state.updated_column_names = all_column_names
         st.session_state.now_show = True
+
         df.columns = all_column_names
         st.success("Column names set successfully!")
         st.rerun()
