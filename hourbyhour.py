@@ -114,24 +114,40 @@ def main():
         df['Day'] = df['Time'].dt.day
         df['Year'] = df['Time'].dt.year
         df['Quarter'] = df['Time'].dt.quarter
+        df['Date'] = df['Time'].dt.date
 
 
         st.write('## Select the columns to perform operations...')
 
         tempcol1, tempcol2 = st.columns(2)
 
-        tempcol3, tempcol4 = st.columns(2)
-
         tempcol5, tempcol6 = st.columns(2)
+
+        tempcol3, tempcol4 = st.columns(2)
 
         with tempcol1:
             # groupby 
             groupby = st.selectbox('Select column to groupby:', df.columns, index=None)
+            if groupby is not None and 'Date' in groupby:
+                st.warning(':warning: Selection includes first month and excludes the last month selected for example [inclusive Nov-23, exclusive Dec-23) will have 1 Nov to 30 Nov')
 
         with tempcol3:
             # which kind of operation to perform
             operation = st.selectbox('Select operation:', ['Mean', 'Max', 'Quantile'], index=None)
-    
+
+        with tempcol5:
+            if groupby is not None and 'Date' in groupby:
+                with tempcol2:
+                    # radio to select month (year)
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    month_year = df['Date'].dt.strftime('%b-%y').unique()
+                    selected_month_year_range = st.select_slider(
+                        'Select a range of month-year:',
+                        options=month_year,
+                        value=(month_year[2], month_year[5]),
+                        key='selected_month_year_range'
+                    )
+                        
         with tempcol4:
             if operation is not None and 'quantile' in operation.lower():
                 # quantile value
@@ -141,12 +157,17 @@ def main():
             if 'Hour' in groupby:
                 with tempcol2:
                     # range slider for selecting the time window
-                    values = st.slider('Select a range of hours', 1, 24, (4, 11))
+                    hoursvalues = st.slider('Select a range of hours', 1, 24, (4, 11))
 
             if 'Month' in groupby:
                 with tempcol2:
                     # range slider for selecting the time window
-                    values = st.slider('Select a range of months', 1, 12, (4, 9))
+                    monthvalues = st.slider('Select a range of months', 1, 12, (4, 9))
+
+            if 'Date' in groupby:
+                with tempcol2:
+                    # range slider for selecting the time window
+                    datevalues = st.slider('Select a range of dates', 1, 31, (1, 15))
         
         # select columns to perform operations
         columnsToPerformOps = st.multiselect('Select column(s) to perform operations:', df.columns, default=[])
@@ -156,11 +177,21 @@ def main():
             # if groupby hour? then
             if 'Hour' in groupby:
                 # filter the dataframe based on the range of hours selected
-                df = df[(df['Hour'] >= values[0]) & (df['Hour'] <= values[1])].copy()
+                df = df[(df['Hour'] >= hoursvalues[0]) & (df['Hour'] <= hoursvalues[1])].copy()
 
             if 'Month' in groupby:
                 # filter the dataframe based on the range of months selected
-                df = df[(df['Month'] >= values[0]) & (df['Month'] <= values[1])].copy()
+                df = df[(df['Month'] >= monthvalues[0]) & (df['Month'] <= monthvalues[1])].copy()
+
+            if 'Date' in groupby:
+                # filter the dataframe based on the range of dates selected
+                # filter over months and dates
+                print(len(df))
+                selected_month_year_range = pd.to_datetime(selected_month_year_range, format='%b-%y')
+                df = df[(df['Date'] >= selected_month_year_range[0]) & (df['Date'] <= selected_month_year_range[1])].copy()
+                print(len(df))
+                df = df[(df['Day'] >= datevalues[0]) & (df['Day'] <= datevalues[1])].copy()
+                print(len(df))
 
             # perform operations on the selected columns
             if operation.lower() == 'quantile':
@@ -185,8 +216,14 @@ def main():
                     # get % of the total sum
                     filtered_df['Precheck %'] = (filtered_df['Precheck Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
                     filtered_df[f'{checkpoint} %'] = (filtered_df[f'{checkpoint} Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
+                # if filtered_df has 2 different dates in last 2 rows, remove last row
+                if len(filtered_df) > 1 and filtered_df.iloc[-1, 0] != filtered_df.iloc[-2, 0]:
+                    filtered_df.drop(filtered_df.tail(1).index, inplace=True)
 
                 st.dataframe(filtered_df, use_container_width=True)
+
+            print("month selected is: ", selected_month_year_range)
+            print("date selected is: ", datevalues)
 
             st.write('## :airplane_departure: Calculate the number of lanes required based on throughput...')
 
@@ -234,11 +271,14 @@ def main():
                 elif operation.lower() == 'quantile':
                     myOperation = str(quantileQ) + ' Quantile'
 
-                st.markdown(f"""
-                    - If we perform operations to get `{myOperation}` values over the data:
-                        - With **Standard throughput**: `{standard_throughput_slider} Pax/Hour` Max lanes required: `{int(max_standard)}`
-                        - With **Precheck throughput**: `{precheck_throughput_slider} Pax/Hour` Max lanes required: `{int(max_precheck)}`
-                    """, unsafe_allow_html=True)
+                if standard_throughput_slider > 0 and precheck_throughput_slider > 0 and max_standard > 0 and max_precheck > 0:
+                    st.markdown(f"""
+                        - If we perform operations to get `{myOperation}` values over the data:
+                            - With **Standard throughput**: `{standard_throughput_slider} Pax/Hour` Max lanes required: `{int(max_standard)}`
+                            - With **Precheck throughput**: `{precheck_throughput_slider} Pax/Hour` Max lanes required: `{int(max_precheck)}`
+                        """, unsafe_allow_html=True)
+                else:
+                    st.warning(':warning: Please modify the search parameters to calculate the number of lanes')
 
 
                 showTable2, showGraph2 = st.columns(2)
