@@ -19,7 +19,10 @@ def main():
     set_session_state()
 
     # wide mode
-    st.set_page_config(layout="wide")
+    st.set_page_config(
+        page_title="Input Generator Data Analysis TS Tool", 
+        layout="wide"
+    )
 
     # Title of the app
     st.title('Data Analysis Tool :bar_chart:')

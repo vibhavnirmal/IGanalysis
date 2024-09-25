@@ -19,6 +19,10 @@ def set_session_state():
 def main():
     set_session_state()
 
+    st.set_page_config(
+        page_title="Hour By Hour TS Tool"
+    )
+
     # Title of the app
     st.title('Hour by Hour Data Analysis Tool :bar_chart:')
 
