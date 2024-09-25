@@ -168,15 +168,27 @@ def main():
             else:
                 filtered_df = df.groupby(groupby)[columnsToPerformOps].agg(operation.lower()).round(0)
 
-            st.write('Plotting graph...')
-            st.bar_chart(filtered_df.iloc[:, :3], use_container_width=True, stack=False)
+            showTable1, showGraph1 = st.columns(2)
 
-            if 'Precheck Sum In Flow' in filtered_df.columns and f'{checkpoint} Sum In Flow' in filtered_df.columns:
-                # get % of the total sum
-                filtered_df['Precheck %'] = (filtered_df['Precheck Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
-                filtered_df[f'{checkpoint} %'] = (filtered_df[f'{checkpoint} Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
+            with showTable1:
+                showTable1Checkbox = st.checkbox('Show data for each hour as table', value=True, key='showTable1Checkbox')
 
-            st.dataframe(filtered_df, use_container_width=True)
+            with showGraph1:
+                showGraph1Checkbox = st.checkbox('Show Graph', value=False, key='showGraph1Checkbox')
+
+            if showGraph1Checkbox:
+                st.write('Plotting graph...')
+                st.bar_chart(filtered_df.iloc[:, :3], use_container_width=True, stack=False)
+
+            if showTable1Checkbox:
+                if 'Precheck Sum In Flow' in filtered_df.columns and f'{checkpoint} Sum In Flow' in filtered_df.columns:
+                    # get % of the total sum
+                    filtered_df['Precheck %'] = (filtered_df['Precheck Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
+                    filtered_df[f'{checkpoint} %'] = (filtered_df[f'{checkpoint} Sum In Flow'] / (filtered_df['Precheck Sum In Flow'] + filtered_df[f'{checkpoint} Sum In Flow'])) * 100
+
+                st.dataframe(filtered_df, use_container_width=True)
+
+            st.write('## :airplane_departure: Calculate the number of lanes required based on throughput...')
 
             tempColNew1, tempColNew2 = st.columns(2)
             tempColNew3, tempColNew4 = st.columns(2)
@@ -211,9 +223,41 @@ def main():
                 # rearrange the columns in the dataframe 1 Checkpoint A Sum In Flow, 2 Standard Lanes Needed, 3 Precheck Sum In Flow, 4 Precheck Lanes Needed
                 filtered_df = filtered_df[[f'{checkpoint} Sum In Flow', 'Standard Lanes Needed', 'Precheck Sum In Flow', 'Precheck Lanes Needed']]
 
-                st.dataframe(filtered_df, use_container_width=True)
+                # find max lanes needed out of Precheck Lanes Needed and Standard Lanes Needed
+                max_standard = filtered_df['Standard Lanes Needed'].max()
+                max_precheck = filtered_df['Precheck Lanes Needed'].max()
+
+                if operation.lower() == 'mean':
+                    myOperation = 'Average'
+                elif operation.lower() == 'max':
+                    myOperation = 'Maximum'
+                elif operation.lower() == 'quantile':
+                    myOperation = str(quantileQ) + ' Quantile'
+
+                st.markdown(f"""
+                    - If we perform operations to get `{myOperation}` values over the data:
+                        - With **Standard throughput**: `{standard_throughput_slider} Pax/Hour` Max lanes required: `{int(max_standard)}`
+                        - With **Precheck throughput**: `{precheck_throughput_slider} Pax/Hour` Max lanes required: `{int(max_precheck)}`
+                    """, unsafe_allow_html=True)
+
+
+                showTable2, showGraph2 = st.columns(2)
+
+                with showTable2:
+                    showTable2Checkbox = st.checkbox('Show data for each hour as table', value=False, key='showTable2Checkbox')
+
+                with showGraph2:
+                    showGraph2Checkbox = st.checkbox('Show Graph', value=False, key='showGraph2Checkbox')
+
+                if showTable2Checkbox:
+                    st.dataframe(filtered_df, use_container_width=True)
+
+                if showGraph2Checkbox:
+                    st.bar_chart(filtered_df.iloc[:, 1::2], use_container_width=True, stack=False)
             else:
                 st.warning(':warning: Please select the throughput columns to calculate the number of lanes')
+
+
                                 
         else:
             st.warning(':warning: Please select the columns to perform operations... ')
