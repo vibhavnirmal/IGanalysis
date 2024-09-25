@@ -69,12 +69,11 @@ def main():
     if st.session_state.selected_file is not None:
         df, header_option, tableElement = sidebar.sidebar("input_gen")
 
-        columnnames.column_names(df, header_option, "input_gen")
+        columnnames.column_names(df, header_option, "input_gen")      
 
         # Use either the session state column names or original column names
         if st.session_state.new_column_names:
             df.columns = st.session_state.new_column_names
-
 
         # Define the pattern to match 'checkpoint' followed by an optional space and a letter
         pattern = r"checkpoint\s*([A-Z])"
@@ -92,8 +91,23 @@ def main():
                 'Checkpoint A', 'Checkpoint B'
             ], index=None, key='checkpoint')
 
+        tempColNeg1, tempColNeg2 = st.columns(2)
+
+        with tempColNeg1:
+            removeNegativeValues = st.checkbox('Remove negative values', value=False)
+        
+        with tempColNeg2:
+            if removeNegativeValues:
+                # turn negative values to 0 from f'{checkpoint} Sum In Flow' and 'Precheck Sum In Flow' and count the number of negative values
+                negative_values = df[(df[f'{checkpoint} Sum In Flow'] < 0) | (df['Precheck Sum In Flow'] < 0)].shape[0]
+                df[f'{checkpoint} Sum In Flow'] = df[f'{checkpoint} Sum In Flow'].apply(lambda x: 0 if x < 0 else x)
+                df['Precheck Sum In Flow'] = df['Precheck Sum In Flow'].apply(lambda x: 0 if x < 0 else x)
+                st.write(f'Number of negative values removed: `{negative_values}`')
+
         # convert df['Time'] to datetime object
         df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M')
+
+        tableElement.dataframe(df, use_container_width=True)
 
         df['Hour'] = df['Time'].dt.hour
         df['Month'] = df['Time'].dt.month
@@ -101,7 +115,6 @@ def main():
         df['Year'] = df['Time'].dt.year
         df['Quarter'] = df['Time'].dt.quarter
 
-        tableElement.dataframe(df, use_container_width=True)
 
         st.write('## Select the columns to perform operations...')
 
@@ -166,6 +179,7 @@ def main():
             st.dataframe(filtered_df, use_container_width=True)
 
             tempColNew1, tempColNew2 = st.columns(2)
+            tempColNew3, tempColNew4 = st.columns(2)
 
             with tempColNew1:
                 precheck_throughput = st.selectbox('Select Precheck Column:', df.columns, index=None)
@@ -173,22 +187,34 @@ def main():
             with tempColNew2:
                 precheck_throughput_slider = st.slider('Select Precheck Throughput (PAX/Hour):', 100, 300, 250, 5)
 
-            if precheck_throughput is not None and precheck_throughput_slider is not None:
-                filtered_df['Lanes Needed'] = (filtered_df[precheck_throughput] / precheck_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
-                st.dataframe(filtered_df, use_container_width=True)
-
-            tempColNew3, tempColNew4 = st.columns(2)
-
             with tempColNew3:
                 standard_throughput = st.selectbox('Select Standard Column:', df.columns, index=None)
 
             with tempColNew4:
                 standard_throughput_slider = st.slider('Select Standard Throughput (PAX/Hour):', 100, 300, 150, 5)
 
-            if standard_throughput is not None and standard_throughput_slider is not None:
-                filtered_df['Lanes Needed'] = (filtered_df[standard_throughput] / standard_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
+            if precheck_throughput is not None and standard_throughput is not None:
+
+                st.write(f'Selected throughput values for `precheck` is `{precheck_throughput_slider} Pax/Hour` and for `standard` is `{standard_throughput_slider} Pax/Hour`')
+
+                if precheck_throughput is not None and precheck_throughput_slider is not None:
+                    filtered_df['Precheck Lanes Needed'] = (filtered_df[precheck_throughput] / precheck_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
+                    # st.dataframe(filtered_df, use_container_width=True)
+
+                if standard_throughput is not None and standard_throughput_slider is not None:
+                    filtered_df['Standard Lanes Needed'] = (filtered_df[standard_throughput] / standard_throughput_slider).round(0).apply(lambda x: 1 if x == 0 else x)
+                
+                # drop Precheck % and Checkpoint % columns
+                if 'Precheck %' in filtered_df.columns:
+                    filtered_df.drop(columns=['Precheck %', f'{checkpoint} %'], inplace=True)
+
+                # rearrange the columns in the dataframe 1 Checkpoint A Sum In Flow, 2 Standard Lanes Needed, 3 Precheck Sum In Flow, 4 Precheck Lanes Needed
+                filtered_df = filtered_df[[f'{checkpoint} Sum In Flow', 'Standard Lanes Needed', 'Precheck Sum In Flow', 'Precheck Lanes Needed']]
+
                 st.dataframe(filtered_df, use_container_width=True)
-                             
+            else:
+                st.warning(':warning: Please select the throughput columns to calculate the number of lanes')
+                                
         else:
             st.warning(':warning: Please select the columns to perform operations... ')
 
