@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils import managecolumns, loaddata, peakrolling
+from utils import managecolumns, loaddata, peakrolling, addnewcolumn
 
 def set_session_state():
     if 'new_column_names' not in st.session_state:
@@ -79,6 +79,10 @@ def main():
         
         if header_option == "Yes":
             st.session_state.now_show = True
+
+            
+
+
             st.session_state.new_column_names = df.columns.tolist()
             st.session_state.updated_column_names = df.columns.tolist()
 
@@ -149,7 +153,8 @@ def main():
         tableElement.dataframe(df)
 
         if st.session_state.now_show:
-            available_operations_between_2_cols_map = {'add': '+', 'subtract': '-', 'multiply': '*', 'divide': '/'}
+            available_operations_between_2_cols_map = {'add': '+', 'subtract': '-', 'multiply': '*', 'divide': '/', 'group': 'group'}
+            available_operations_between_2_cols_map_no_grp = {'add': '+', 'subtract': '-', 'multiply': '*', 'divide': '/'}
             available_operations_for_single_col_map = {'mean': 'mean', 'sum': 'sum', 'max': 'max', 'min': 'min'}
 
             # perform new operations? 
@@ -172,6 +177,9 @@ def main():
                 # Choose whether to perform operations between two columns or not
                 operation_between_2_cols = st.radio('Perform operation between two columns?', [True, False])
 
+                # how many new columns
+                newColumnsCount = st.number_input('Enter number of new columns:', min_value=1, max_value=2, value=1)                      
+
                 if operation_between_2_cols:
                     # Ensure the dataframe has the updated column names
 
@@ -183,42 +191,93 @@ def main():
                     #     st.error(f"Error: {e}")
                     
                     # Layout for selecting columns and operation
-                    col1_col, col2_col, operation_col = st.columns(3)
-                    
-                    # Select first and second columns
-                    with col1_col:
-                        col1 = st.selectbox('Select column 1:', 
-                                            st.session_state.new_column_names, 
-                                            index=None,
-                                            placeholder="Select first column...")
+                    operation_col, col1_col, col2_col = st.columns(3)
 
-                    with col2_col:
-                        col2 = st.selectbox('Select column 2:', st.session_state.new_column_names, 
-                                            index=None,
-                                            placeholder="Select second column...")
+                    operation_col2, col1_col2, col2_col2 = st.columns(3)
 
                     # Select operation to perform between columns
                     with operation_col:
                         operation_name = st.selectbox('Select operation:', list(available_operations_between_2_cols_map.keys()), 
                                             index=None,
-                                            placeholder="Select operation [ + - / * ]")
-
+                                            placeholder="Select operation [ + - / * group]")
                     
+                    if operation_name and operation_name != 'group':
+                        # Select first and second columns
+                        with col1_col:
+                            col1G = st.selectbox('Select column 1:', 
+                                                st.session_state.new_column_names, 
+                                                index=None,
+                                                placeholder="Select first column...")
 
-                    # Perform the operation
-                    if operation_name in available_operations_between_2_cols_map:
-                        operation = available_operations_between_2_cols_map[operation_name]
-                        new_col_name = 'TempColumn'
-
-                        try:
-                            df[new_col_name] = df[col1].combine(df[col2], eval(f'lambda x, y: x {operation} y'))
+                        with col2_col:
+                            col2G = st.selectbox('Select column 2:', st.session_state.new_column_names, 
+                                                index=None,
+                                                placeholder="Select second column...")
                             
-                            st.caption(f"New column with name '`{new_col_name}`' is created at the end of the DataFrame.")
-                            st.write(df)
-                            st.session_state.updated_column_names = df.columns.tolist()
-                        except Exception as e:
-                            st.error(f"Error performing operation '{operation_name}' between columns '{col1}' and '{col2}': {e}")
+                        # Perform the operation
+                        if operation_name in available_operations_between_2_cols_map:
+                            operation = available_operations_between_2_cols_map[operation_name]
+                            new_col_name = 'TempColumn'
 
+                            try:
+                                df[new_col_name] = df[col1G].combine(df[col2G], eval(f'lambda x, y: x {operation} y'))
+                                
+                                st.caption(f"New column with name '`{new_col_name}`' is created at the end of the DataFrame.")
+                                st.write(df)
+                                st.session_state.updated_column_names = df.columns.tolist()
+                            except Exception as e:
+                                st.error(f"Error performing operation '{operation_name}' between columns '{col1G}' and '{col2G}': {e}")
+                        
+                    elif operation_name == 'group':
+                        # Select column to group by
+                        with col1_col:
+                            col1G = st.selectbox('Select column to group by:', 
+                                                st.session_state.new_column_names, 
+                                                index=None,
+                                                placeholder="Select column to group by...")
+                        
+                        # Select values to group by
+                        with col2_col:
+                            colGroup = st.number_input('Enter number of groups:', min_value=1, max_value=5, value=1)
+                            if col1G:
+                                col2G = []
+                                for i in range(colGroup):
+                                    col2G.append(st.multiselect(f'Select values for group {i+1}:', df[col1G].unique()))
+                        
+                                df = addnewcolumn.group_values_and_update_df(df, col1G, col2G)
+                    
+                    if newColumnsCount == 2:
+
+                        # Select operation to perform between columns
+                        with operation_col2:
+                            operation_name = st.selectbox('Select operation:', list(available_operations_between_2_cols_map_no_grp.keys()), 
+                                                index=None,
+                                                placeholder="Select operation [ + - / * ]", key="2"+"AbcC")
+                            
+                        with col1_col2:
+                            col1 = st.selectbox('Select column 1:', 
+                                                st.session_state.new_column_names, 
+                                                index=None,
+                                                placeholder="Select first column...", key="2"+"Abc")
+
+                        with col2_col2:
+                            col2 = st.selectbox('Select column 2:', st.session_state.new_column_names, 
+                                                index=None,
+                                                placeholder="Select second column...", key="2"+"Def")
+                            
+                        # Perform the operation
+                        if operation_name in available_operations_between_2_cols_map_no_grp and col1 and col2:
+                            operation = available_operations_between_2_cols_map_no_grp[operation_name]
+                            new_col_name = 'TempColumn'
+
+                            try:
+                                df[new_col_name] = df[col1].combine(df[col2], eval(f'lambda x, y: x {operation} y'))
+                                
+                                st.caption(f"New column with name '`{new_col_name}`' is created at the end of the DataFrame.")
+                                st.write(df)
+                                st.session_state.updated_column_names = df.columns.tolist()
+                            except Exception as e:
+                                st.error(f"Error performing operation '{operation_name}' between columns '{col1}' and '{col2}': {e}")
                 else:
                     # Single-column operation layout
                     operation_for_single_col_col, col_col = st.columns(2)
@@ -256,7 +315,7 @@ def main():
             # select, sort by column
             st.write('### Select and Sort by Column :arrow_up_down:')
 
-            performSorting = st.toggle(key='perform_sorting', value=True, label='Perform Sorting ?')
+            performSorting = st.toggle(key='perform_sorting', value=False, label='Perform Sorting ?')
 
             if performSorting:
                 # sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")

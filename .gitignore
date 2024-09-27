@@ -161,4 +161,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 temp.ipynb
+temp2.ipynb
 RIC1PaxOut1.csv
+peaks_no_grp.xlsx
+peaks.xlsx
+peaks.csv

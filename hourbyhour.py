@@ -16,6 +16,16 @@ def set_session_state():
     if "selected_file" not in st.session_state:
         st.session_state.selected_file = None
 
+# Function to apply to each row
+def find_divisible_in_range(value, min_range=100, max_range=200):
+    divisors = [1, 2, 3]
+    for divisor in divisors:
+        result = round(value / divisor)
+        if min_range <= result <= max_range:
+            return result
+    return None
+
+
 def main():
     set_session_state()
 
@@ -55,9 +65,6 @@ def main():
         # set expander state to expanded=False
         # expander.expanded = False
     
-    # with col2:
-
-
     if len(uploaded_files) > 1:
         # create radio buttons for multiple files
         selected_file = st.sidebar.radio('Select a file:', uploaded_files, format_func=lambda x: x.name)
@@ -86,9 +93,8 @@ def main():
             letter = match.group(1).upper()  # Use .upper() to ensure consistency
             checkpoint = f'Checkpoint {letter}'
         else:
-            print("No 'checkpoint' pattern found.")
             checkpoint = st.radio('Select a checkpoint:', [
-                'Checkpoint A', 'Checkpoint B'
+                'Checkpoint A', 'Checkpoint B', 'Checkpoint COMBINED'
             ], index=None, key='checkpoint')
 
         tempColNeg1, tempColNeg2 = st.columns(2)
@@ -104,6 +110,118 @@ def main():
                 df['Precheck Sum In Flow'] = df['Precheck Sum In Flow'].apply(lambda x: 0 if x < 0 else x)
                 st.write(f'Number of negative values removed: `{negative_values}`')
 
+        boundsFor4Standard, startBoundsFor4Standard = st.columns(2)
+
+        with boundsFor4Standard:
+            standard_bounds = st.checkbox('Set bounds for Standard Flow In', value=False)
+
+        with startBoundsFor4Standard:
+            if standard_bounds:
+                standard_bound = st.slider('Enter bounds for Standard:', 100, 200, (125, 175), key='standard_bound')
+        
+        if standard_bounds and standard_bound[0] > 0 :
+            mean_standard = (standard_bound[0] + standard_bound[1]) / 2
+            deviation_lower_standard = mean_standard - standard_bound[0]
+            deviation_upper_standard = standard_bound[1] - mean_standard
+
+            # Calculate the percentage deviation from the mean
+            percent_deviation_lower_standard = (deviation_lower_standard / mean_standard) * 100
+            percent_deviation_upper_standard = (deviation_upper_standard / mean_standard) * 100
+
+            st.markdown(f'''<p style="background-color:#400066; color:white; font-size:16px; padding: 10px;">
+                        Standard bounds are set from 
+                        <span style="color:lightgreen"><b>{standard_bound[0]}</b></span> to 
+                        <span style="color:lightgreen"><b>{standard_bound[1]}</b></span>, mean is 
+                        <span style="color:lightgreen"><b>{mean_standard}</b></span> and standard deviation is 
+                        <span style="color:lightgreen"><b>{round(percent_deviation_lower_standard, 2), round(percent_deviation_upper_standard, 2)}</b></span>
+                        </p>''', unsafe_allow_html=True)
+            
+        # Ensure that precheck_bounds and standard_bound variables exist and have valid values
+        if standard_bounds and standard_bound[0] > 0:
+            df[f'{checkpoint} Sum In Flow'] = df[f'{checkpoint} Sum In Flow'].apply(find_divisible_in_range, args=(standard_bound[0], standard_bound[1]))
+            df_std = df.copy().dropna().reset_index(drop=True)
+            st.dataframe(df_std, use_container_width=True)
+
+            showStatsStandard = st.checkbox('Show Standard Stats', value=False)
+
+            if showStatsStandard:
+                # get average, 80th percentile, 90th percentile, 95th percentile, 99th percentile
+                standard_avg = df_std[f'{checkpoint} Sum In Flow'].mean()
+                standard_60th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.6)
+                standard_70th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.7)
+                standard_75th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.75)
+                standard_80th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.8)
+                standard_90th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.9)
+                standard_95th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.95)
+                standard_99th = df_std[f'{checkpoint} Sum In Flow'].quantile(0.99)
+
+                # write it table format
+                st.dataframe(pd.DataFrame({
+                    'Standard Average': [standard_avg],
+                    '60th': [standard_60th],
+                    '70th': [standard_70th],
+                    '75th': [standard_75th],
+                    '80th': [standard_80th],
+                    '90th': [standard_90th],
+                    '95th': [standard_95th],
+                    '99th': [standard_99th]
+                }), use_container_width=True)
+        
+        boundsFor4Precheck, startBoundsFor4Precheck = st.columns(2)
+        with boundsFor4Precheck:
+            precheck_bounds = st.checkbox('Set bounds for Precheck Flow In', value=False)
+
+        with startBoundsFor4Precheck:
+            if precheck_bounds:
+                precheck_bound = st.slider('Enter bounds for Precheck:', 200, 300, (205, 275), key='precheck_bound')
+
+        if precheck_bounds and precheck_bound[0]>0 :
+            mean_precheck = (precheck_bound[0] + precheck_bound[1]) / 2
+            # Calculate the deviation from the mean for the upper and lower bounds
+            deviation_lower = mean_precheck - precheck_bound[0]
+            deviation_upper = precheck_bound[1] - mean_precheck
+
+            # Calculate the percentage deviation from the mean
+            percent_deviation_lower = (deviation_lower / mean_precheck) * 100
+            percent_deviation_upper = (deviation_upper / mean_precheck) * 100
+            st.markdown(f'''<p style="background-color:#400066; color:white; font-size:16px; padding: 10px;">
+                        Standard bounds are set from 
+                        <span style="color:lightgreen">{precheck_bound[0]}</span> to 
+                        <span style="color:lightgreen">{precheck_bound[1]}</span>, mean is 
+                        <span style="color:lightgreen">{mean_precheck}</span> and standard deviation is 
+                        <span style="color:lightgreen">{round(percent_deviation_lower, 2), round(percent_deviation_upper, 2)}</span>
+                        </p>''', unsafe_allow_html=True)
+                
+        if precheck_bounds and precheck_bound[0] > 0:
+            df['Precheck Sum In Flow'] = df['Precheck Sum In Flow'].apply(find_divisible_in_range, args=(precheck_bound[0], precheck_bound[1]))
+            df_pre = df.copy().dropna().reset_index(drop=True)
+            st.dataframe(df_pre, use_container_width=True)
+
+            showStatsPrecheck = st.checkbox('Show Precheck Stats (percentiles)', value=False)
+
+            if showStatsPrecheck:
+                # get average, 80th percentile, 90th percentile, 95th percentile, 99th percentile
+                precheck_avg = df_pre['Precheck Sum In Flow'].mean()
+                precheck_60th = df_pre['Precheck Sum In Flow'].quantile(0.6)
+                precheck_70th = df_pre['Precheck Sum In Flow'].quantile(0.7)
+                precheck_75th = df_pre['Precheck Sum In Flow'].quantile(0.75)
+                precheck_80th = df_pre['Precheck Sum In Flow'].quantile(0.8)
+                precheck_90th = df_pre['Precheck Sum In Flow'].quantile(0.9)
+                precheck_95th = df_pre['Precheck Sum In Flow'].quantile(0.95)
+                precheck_99th = df_pre['Precheck Sum In Flow'].quantile(0.99)
+                
+                # write it table format
+                st.dataframe(pd.DataFrame({
+                    'Precheck Average': [precheck_avg],
+                    '60th': [precheck_60th],
+                    '70th': [precheck_70th],
+                    '75th': [precheck_75th],
+                    '80th': [precheck_80th],
+                    '90th': [precheck_90th],
+                    '95th': [precheck_95th],
+                    '99th': [precheck_99th]
+                }), use_container_width=True)
+
         # convert df['Time'] to datetime object
         df['Time'] = pd.to_datetime(df['Time'], format='%m/%d/%Y %H:%M')
 
@@ -115,7 +233,6 @@ def main():
         df['Year'] = df['Time'].dt.year
         df['Quarter'] = df['Time'].dt.quarter
         df['Date'] = df['Time'].dt.date
-
 
         st.write('## Select the columns to perform operations...')
 
@@ -133,7 +250,7 @@ def main():
 
         with tempcol3:
             # which kind of operation to perform
-            operation = st.selectbox('Select operation:', ['Mean', 'Max', 'Quantile'], index=None)
+            operation = st.selectbox('Select operation:', ['Mean', 'Max', 'PERCENTILE'], index=None)
 
         with tempcol5:
             if groupby is not None and 'Date' in groupby:
@@ -149,9 +266,8 @@ def main():
                     )
                         
         with tempcol4:
-            if operation is not None and 'quantile' in operation.lower():
-                # quantile value
-                quantileQ = st.slider('Select quantile value:', 0.0, 1.0, 0.75, 0.05)      
+            if operation is not None and 'percentile' in operation.lower():
+                quantileQ = st.slider('Select PERCENTILE value:', 0.0, 1.0, 0.75, 0.05)      
 
         if groupby is not None and len(groupby) > 0:
             if 'Hour' in groupby:
@@ -194,7 +310,7 @@ def main():
                 print(len(df))
 
             # perform operations on the selected columns
-            if operation.lower() == 'quantile':
+            if operation.lower() == 'percentile':
                 filtered_df = df.groupby(groupby)[columnsToPerformOps].quantile(quantileQ).round(0)
             else:
                 filtered_df = df.groupby(groupby)[columnsToPerformOps].agg(operation.lower()).round(0)
@@ -221,9 +337,6 @@ def main():
                     filtered_df.drop(filtered_df.tail(1).index, inplace=True)
 
                 st.dataframe(filtered_df, use_container_width=True)
-
-            print("month selected is: ", selected_month_year_range)
-            print("date selected is: ", datevalues)
 
             st.write('## :airplane_departure: Calculate the number of lanes required based on throughput...')
 
@@ -268,8 +381,8 @@ def main():
                     myOperation = 'Average'
                 elif operation.lower() == 'max':
                     myOperation = 'Maximum'
-                elif operation.lower() == 'quantile':
-                    myOperation = str(quantileQ) + ' Quantile'
+                elif operation.lower() == 'percentile':
+                    myOperation = str(quantileQ) + ' Percentile'
 
                 if standard_throughput_slider > 0 and precheck_throughput_slider > 0 and max_standard > 0 and max_precheck > 0:
                     st.markdown(f"""
@@ -301,15 +414,8 @@ def main():
                                 
         else:
             st.warning(':warning: Please select the columns to perform operations... ')
-
-        
-
-
-
-
-
-
-
+    else:
+        st.warning(':warning: Please upload a file to start the analysis...')
 
 if __name__ == "__main__":
     main()
