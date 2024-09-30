@@ -2,7 +2,15 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta
 import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 
+def rolling_sum_of_rows(df, colT1, window=60):
+    # if colE2 not selected, count num of rows (rolling)
+    # for example, if colE2 is not selected, count the number of rows in the rolling window based on colT1
+    df['RollingSum'] = df[colT1].rolling(window=window).sum()
+    return df
+    
 def rolling_bin_max_sum_grouped(df, timeColumn, entityColumn, bin_interval=1, window=60, groupBy='', show_in_hhmm_format=False):
     # Create bins for the given time column (0 to 1440 minutes, at bin_interval granularity)
     bins = pd.cut(df[timeColumn], bins=range(0, 1441, bin_interval), right=False)
@@ -37,8 +45,14 @@ def rolling_bin_max_sum_grouped(df, timeColumn, entityColumn, bin_interval=1, wi
         results['RollingMax'].append(int(rolling_max) if pd.notna(rolling_max) else 0)
         results['RollingMaxTime'].append(rolling_max_time_value if rolling_max_time_value is not None else 'N/A')
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
 
+
+
+    # Initialize the figure outside the loop
+    fig = go.Figure()
+
+    # Loop through each unique pax_type
     for pax_type in df[groupBy].unique():
         temp_pax_type = df[df[groupBy] == pax_type]
         grpSizeSum = temp_pax_type.groupby(bins, observed=False)[entityColumn].sum()
@@ -47,24 +61,34 @@ def rolling_bin_max_sum_grouped(df, timeColumn, entityColumn, bin_interval=1, wi
         rolling_sum_df = rolling_sum_chart.reset_index()
         rolling_sum_df.columns = ['Time', 'Rolling Sum']
 
-        # show max values
-        rolling_sum_df['Rolling Sum Max'] = rolling_sum_df['Rolling Sum'].max()
-        rolling_sum_df['Rolling Sum Max Time'] = rolling_sum_df[rolling_sum_df['Rolling Sum'] == rolling_sum_df['Rolling Sum Max']]['Time']
+        # Find max values
+        rolling_sum_max = rolling_sum_df['Rolling Sum'].max()
+        rolling_sum_max_time = rolling_sum_df[rolling_sum_df['Rolling Sum'] == rolling_sum_max]['Time'].iloc[0]
 
-        ax.plot(rolling_sum_df['Time'], rolling_sum_df['Rolling Sum'], label=pax_type)
-        ax.scatter(rolling_sum_df['Rolling Sum Max Time'], rolling_sum_df['Rolling Sum Max'], label=f'{pax_type} Max', color='red')
+        # Add line plot for current pax_type
+        fig.add_trace(go.Scatter(x=rolling_sum_df['Time'], y=rolling_sum_df['Rolling Sum'], mode='lines', name=f'{pax_type}'))
+
+        # Add scatter plot to mark the max value
+        fig.add_trace(go.Scatter(x=[rolling_sum_max_time], y=[rolling_sum_max], mode='markers', 
+                                name=f'{rolling_sum_max}', marker=dict(color='red')))
         
+    # ax.set_xlabel('Time')
+    # ax.set_ylabel('Rolling Sum')
+    # ax.legend(title='PaxType')
+    # ax.set_title('Rolling Sum for Each PaxType')
 
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Rolling Sum')
-    ax.legend(title='PaxType')
-    ax.set_title('Rolling Sum for Each PaxType')
-
+    # plotly
+    # fig.update_layout(title='Rolling Sum for Each PaxType', xaxis_title='Time', yaxis_title='Rolling Sum')
+    # Set the title and layout of the figure
+    fig.update_layout(title='Rolling Sum for Multiple Pax Types',
+                    xaxis_title='Time',
+                    yaxis_title='Rolling Sum')
 
     # show on left side of the screen
     colPlot1, colDataShow = st.columns(2)
     with colPlot1:
-        st.pyplot(fig)
+        # st.pyplot(fig)
+        st.plotly_chart(fig)
 
     with colDataShow:
         st.write(pd.DataFrame(results))

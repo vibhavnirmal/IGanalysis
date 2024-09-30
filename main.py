@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from utils import addnewcolumns, managecolumns, loaddata, peakrolling
+from utils import managecolumns, loaddata, peakrolling
+import matplotlib.pyplot as plt
 
 def set_session_state():
     if 'new_column_names' not in st.session_state:
@@ -389,6 +390,11 @@ def main():
                             st.session_state.new_column_names = df.columns.tolist()
                         rollingMax = peakrolling.rolling_bin_max_sum_grouped(df, colT1, colE2, window=colTimeWin3, groupBy=group_by_column, show_in_hhmm_format=show_in_hhmm_format)
                     else:
+                        if not colE2:
+                            df["tempEndColumn"] = 1
+                            df = peakrolling.rolling_sum_of_rows(df, "tempEndColumn", window=60)
+                            st.line_chart(df["RollingSum"])
+
                         st.warning('Please select the column names first to perform operations.', icon='⚠️')
                 else:
                     show_in_hhmm_format = st.checkbox('Show in HH:MM format', value=True)
@@ -397,6 +403,11 @@ def main():
                         
                         st.write(pd.DataFrame({'RollingMax': [rollingMax], 'RollingMaxTime': [rollingMaxTime]}))
                     else:
+                        if not colE2:
+                            df["tempEndColumn"] = 1
+                            df = peakrolling.rolling_sum_of_rows(df, "tempEndColumn", window=60)
+                            st.line_chart(df["RollingSum"])
+
                         st.write('Please select the column names first to perform operations.')
                     
         else:
