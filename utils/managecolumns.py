@@ -7,6 +7,18 @@ COLUMN_SUGGESTIONS = [
     "PaxType", "PaxIDNum", "PaxSSCPTime", "PaxSPorPE"
 ]
 
+def set_default_columns(df):
+    """
+    Function to set default column names for a DataFrame.
+    
+    Parameters:
+    - df: DataFrame whose columns will be renamed.
+    """
+    df.columns = COLUMN_SUGGESTIONS[:df.shape[1]]
+    st.session_state.new_column_names = COLUMN_SUGGESTIONS[:df.shape[1]]
+    st.session_state.updated_column_names = COLUMN_SUGGESTIONS[:df.shape[1]]
+    st.session_state.now_show = True
+
 @st.dialog("Manage Column Names")
 def manage_columns(df, mode='create'):
     """
