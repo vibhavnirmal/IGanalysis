@@ -166,3 +166,5 @@ RIC1PaxOut1.csv
 peaks_no_grp.xlsx
 peaks.xlsx
 peaks.csv
+*.csv
+*.xlsx

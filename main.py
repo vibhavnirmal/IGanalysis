@@ -16,6 +16,9 @@ def set_session_state():
     if "selected_file" not in st.session_state:
         st.session_state.selected_file = None
 
+    if "checked_default_col_names" not in st.session_state:
+        st.session_state.checked_default_col_names = False
+
 def main():
     set_session_state()
 
@@ -134,8 +137,11 @@ def main():
 
                     with sideBySide2:
                         setDefaultColNames = st.checkbox("Set Default Column Names")
-                        if setDefaultColNames:
+                        if setDefaultColNames or st.session_state.checked_default_col_names:
                             managecolumns.set_default_columns(df)
+                            # cache the column names
+                            st.session_state.new_column_names = df.columns.tolist()
+                            st.session_state.checked_default_col_names = True
                             st.success("Column names set successfully!")
                             st.rerun()
 
@@ -179,7 +185,7 @@ def main():
 
             performOperations = st.toggle(key='perform_ops', value=False, label='Perform Operations on Columns ?')
 
-            if performOperations:
+            if performOperations or st.session_state.now_show:
                 # how many new columns
                 tempNew1, tempNew2, tempNew3 = st.columns(3)
                 with tempNew1:
@@ -204,13 +210,13 @@ def main():
                     #     st.error(f"Error: {e}")
                     
                     # Layout for selecting columns and operation
-                    if checkGroupNeeded:
+                    if checkGroupNeeded or st.session_state.now_show:
                         operation_name = 'group'          
                         col1_col, col2_col = st.columns(2)
 
                     operation_col2, col1_col2, col2_col2 = st.columns(3)
 
-                    if checkGroupNeeded:
+                    if checkGroupNeeded or st.session_state.now_show:
                         # Select operation to perform between columns
                         # with operation_col:
                         #     operation_name = st.selectbox('Select operation:', list(available_operations_between_2_cols_map.keys()), 
@@ -251,9 +257,10 @@ def main():
                         col2 = st.selectbox('Select column 2:', st.session_state.new_column_names, 
                                             index=None,
                                             placeholder="Select second column...", key="2"+"Def")
-                        
+                    
+                    print(operation_name, col1, col2)
                     # Perform the operation
-                    if operation_name in available_operations_between_2_cols_map_no_grp and col1 and col2:
+                    if operation_name in available_operations_between_2_cols_map_no_grp and col1 and col2 and st.session_state.now_show:
                         operation = available_operations_between_2_cols_map_no_grp[operation_name]
                         new_col_name = 'TempColumn'
 
@@ -304,7 +311,7 @@ def main():
 
             performSorting = st.toggle(key='perform_sorting', value=False, label='Perform Sorting ?')
 
-            if performSorting:
+            if performSorting or st.session_state.now_show:
                 # sort_by_col_select, sort_order_select, yes_sort_button = st.columns([2, 2, 1], gap="medium")
 
                 # with sort_by_col_select:
@@ -375,7 +382,7 @@ def main():
                 st.write('#### Group by Column')
                 performGroupBy = st.toggle(key='perform_group_by', value=False, label='Perform Group by Column ?')
 
-                if performGroupBy:
+                if performGroupBy or st.session_state.now_show:
                     grpByCol1, showHHMMCol2 = st.columns(2)
                     with grpByCol1:
                         group_by_column = st.selectbox('Select group by column:', st.session_state.updated_column_names, 
